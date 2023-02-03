@@ -1,0 +1,46 @@
+import time
+import machine
+import utime
+from motorController import *
+from lsm6dsox import LSM6DSOX
+from machine import Pin,ADC,I2C
+# Accelerometer and gyroscope
+lsm = LSM6DSOX(I2C(0, scl=Pin(13), sda=Pin(12)))
+# Reading values from potentiometer and light sensor
+pot=machine.ADC(Pin(28)) # A2 = Pin(28)
+light=machine.ADC(Pin(29)) # A3 = Pin(29)
+servo1 = Servo(0)
+potValue=[]
+lightValue=[]
+motorValue=[]
+accel=[]
+while True:
+    ### Control servo using pot ###
+    print('Light Value: {:.4f}'.format(light.read_u16()))
+    #print('Potentiometer Value: {:.4f}'.format(pot.read_u16()))
+    #potValue.append(pot.read_u16())
+    #print('Max:%d' % max(potValue))
+    #print('Min:%d' % min(potValue))
+    potMax=65535 # these values are acquired by printing out values and trails
+    potMin=80 # these values are used to correspond potentiometer readings to servo
+    motorMax=30
+    motorMin=5
+    # Normalized motor values using potentiometer. This is a ratio problem
+    motor=(pot.read_u16()-potMin)*(motorMax-motorMin)/(potMax-potMin)+motorMin
+    servo1.setAngle(motor)
+    ### Light sensor control activation ###
+    x = "{:>8.3f}".format(*lsm.read_accel())
+    y = float(x)
+    #print(y)
+    #read if its moved
+    if (y<-0.05 or y>0.05):
+        print("Moved")
+        #jump into another while loop to give servo control to light sensor
+        roomLight=40000 #minimum light value that servo won't react to
+        noLight=60000 #maximum light value which means complete darkness
+        while True:
+            if light.read_u16()>roomLight:
+                motor=(light.read_u16()-roomLight)*(motorMax-motorMin)/(noLight-roomLight)+motorMin
+                servo1.setAngle(motor)
+            utime.sleep(0.2)
+    utime.sleep(0.2)
